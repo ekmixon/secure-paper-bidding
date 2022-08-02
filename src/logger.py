@@ -21,9 +21,10 @@ def set_logger(name='exp', filepath=None, level='INFO'):
     logger.addHandler(handler)
 
     if filepath is not None:
-        if os.path.dirname(filepath) is not '':
-            if not os.path.isdir(os.path.dirname(filepath)):
-                os.makedirs(os.path.dirname(filepath))
+        if os.path.dirname(filepath) is not '' and not os.path.isdir(
+            os.path.dirname(filepath)
+        ):
+            os.makedirs(os.path.dirname(filepath))
         file_handle = logging.FileHandler(filename=filepath, mode="a")
         file_handle.set_name("file")
         file_handle.setFormatter(formatter)

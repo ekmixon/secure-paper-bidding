@@ -37,7 +37,11 @@ subsample_max = args.subsample_max
 cheat_mode = args.cheat_mode
 c_train = 2.0 / (num_reviewer  * num_paper)
 
-logger = set_logger("detect_tpr", "{}/detect_tpr/log_detect_tpr_collusion_{}_top_{}_{}_lam_{}_subsample_max_{}_seed_{}.txt".format(args.output_dir, L_attack, K, cheat_mode, lam, subsample_max, args.seed))
+logger = set_logger(
+    "detect_tpr",
+    f"{args.output_dir}/detect_tpr/log_detect_tpr_collusion_{L_attack}_top_{K}_{cheat_mode}_lam_{lam}_subsample_max_{subsample_max}_seed_{args.seed}.txt",
+)
+
 logger.info(args)
 
 #1. init data
@@ -77,7 +81,10 @@ def detect(p, r, preds, y_train, L_dict):
     return (adv_rank >= K).astype(int).reshape(len(L_dict.keys()))
 
 #2. init attack samples
-data = np.load("{}/attack/attack_collusion_{}_top_{}_{}_num_seeds_{}_lam_{}_subsample_max_{}_seed_{}.npz".format(args.output_dir, L_attack, K, cheat_mode, args.num_seeds, lam, subsample_max, args.seed))
+data = np.load(
+    f"{args.output_dir}/attack/attack_collusion_{L_attack}_top_{K}_{cheat_mode}_num_seeds_{args.num_seeds}_lam_{lam}_subsample_max_{subsample_max}_seed_{args.seed}.npz"
+)
+
 advs_rank = data["advs_rank"]
 advs_sol = data["advs_sol"]
 advs_collusion = data["advs_collusion"]
@@ -104,13 +111,21 @@ def thread_eval_detect(i_j_pair):
 
     detect_result = detect(p, r, preds_adv, y_adv, L_dict)
     del collusion_rev, y_adv, y_delta, preds_delta, preds_adv
-    logger.info("pair ({}, {}) || detect result: {}".format(i, j, detect_result.squeeze()))
-    
+    logger.info(f"pair ({i}, {j}) || detect result: {detect_result.squeeze()}")
+
     return detect_result, i, j, r, p
     
 p = Pool(processes=args.num_threads)
 logger.info(f"num_threads: {args.num_threads}")
-i_j_pair_list = list((i, j) for i in range(num_sample_paper) for j in range(sample_num) if not (advs_rev[i, j] == -1 or  advs_original_rank[i, j] < K or advs_rank[i, advs_original_rank[i, j].astype(int)] >= K))
+i_j_pair_list = [
+    (i, j)
+    for i in range(num_sample_paper)
+    for j in range(sample_num)
+    if advs_rev[i, j] != -1
+    and advs_original_rank[i, j] >= K
+    and advs_rank[i, advs_original_rank[i, j].astype(int)] < K
+]
+
 results = list(tqdm(p.imap(thread_eval_detect, i_j_pair_list), total=len(i_j_pair_list), desc='thread_detect'))
 detect_num = np.stack([result[0] for result in results], axis=0)
 i_s = np.stack([result[1] for result in results], axis=0)
@@ -119,4 +134,12 @@ rs = np.stack([result[3] for result in results], axis=0)
 ps = np.stack([result[4] for result in results], axis=0)
 logger.info(detect_num.shape)
 logger.info(detect_num)
-np.savez("{}/detect_tpr/detect_tpr_collusion_{}_top_{}_{}_num_seeds_{}_lam_{}_subsample_max_{}_seed_{}.npz".format(args.output_dir, L_attack, K, cheat_mode, args.num_seeds, lam, subsample_max, args.seed), detect_num=detect_num, total_num=len(i_j_pair_list), i_s=i_s, j_s=j_s, rs=rs, ps=ps)  
+np.savez(
+    f"{args.output_dir}/detect_tpr/detect_tpr_collusion_{L_attack}_top_{K}_{cheat_mode}_num_seeds_{args.num_seeds}_lam_{lam}_subsample_max_{subsample_max}_seed_{args.seed}.npz",
+    detect_num=detect_num,
+    total_num=len(i_j_pair_list),
+    i_s=i_s,
+    j_s=j_s,
+    rs=rs,
+    ps=ps,
+)  

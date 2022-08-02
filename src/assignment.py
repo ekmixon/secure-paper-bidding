@@ -35,9 +35,9 @@ def precision_evaluate(w, X, y):
     for i in range(preds.shape[0]):
         out = y[i, indices[i, -1:-11:-1]] == 1
         prec_at_k[i] = np.cumsum(out).astype(float) / np.arange(1, 11)
-    logger.info("top10papers: " + repr(prec_at_k.mean(0)))
+    logger.info(f"top10papers: {repr(prec_at_k.mean(0))}")
     prec_top_paper = prec_at_k.mean(0)
-    
+
     preds = preds.transpose()
     y = y.transpose()
     indices = np.argsort(preds, 1)
@@ -45,7 +45,7 @@ def precision_evaluate(w, X, y):
     for i in range(preds.shape[0]):
         out = y[i, indices[i, -1:-11:-1]] == 1
         prec_at_k[i] = np.cumsum(out).astype(float) / np.arange(1, 11)
-    logger.info("top10reviewers: " + repr(prec_at_k.mean(0)))
+    logger.info(f"top10reviewers: {repr(prec_at_k.mean(0))}")
     prec_top_reviewer = prec_at_k.mean(0)
     return prec_top_paper, prec_top_reviewer
 
@@ -54,18 +54,30 @@ def assignment_evaluate(assignment, y, tpms):
     average_scores = (assignment * y).sum() / (assignment > 0).sum()
     average_tpms = (assignment * tpms).sum() / (assignment > 0).sum()
     average_max_tpms = (assignment * tpms).max(1).sum() / assignment.shape[0]
-    logger.info("Frac. of pos.: {}, Avg. bids score: {}, Avg. TPMS: {}, Avg. max. TPMS: {}".format(frac_of_pos, average_scores, average_tpms, average_max_tpms))
+    logger.info(
+        f"Frac. of pos.: {frac_of_pos}, Avg. bids score: {average_scores}, Avg. TPMS: {average_tpms}, Avg. max. TPMS: {average_max_tpms}"
+    )
           
 #1. load data
 logger.info("loading data")
 num_paper, num_reviewer, _, _, _ = get_global_variable()
-y = np.load(args.input_dir + 'labels_{}_seed_{}.npy'.format(args.hashed_ratio, args.seed))
-X = sparse.load_npz(args.input_dir + 'hashed_features_{}_seed_{}.npz'.format(args.hashed_ratio, args.seed))
-    
+y = np.load(
+    args.input_dir + f'labels_{args.hashed_ratio}_seed_{args.seed}.npy'
+)
+
+X = sparse.load_npz(
+    args.input_dir
+    + f'hashed_features_{args.hashed_ratio}_seed_{args.seed}.npz'
+)
+
+
 #2. subsample y
 y_train = y.copy()
 logger.info("subsample y")
-logger.info("positive in train: {}, negative in train: {}".format(len(np.nonzero(y_train > 0)[0]), len(np.nonzero(y_train <= 0)[0])))
+logger.info(
+    f"positive in train: {len(np.nonzero(y_train > 0)[0])}, negative in train: {len(np.nonzero(y_train <= 0)[0])}"
+)
+
 if args.subsample_max > 0:
     np.random.seed(0)
     y_train = np.reshape(y_train, (int(y_train.shape[0] / num_paper), num_paper))
@@ -83,7 +95,10 @@ if args.subsample_max > 0:
     y_train = np.reshape(y_train, (X.shape[0],))
 
 #3. compute hessian and its inverse
-hessian_file = '{}/hessian_{}_seed_{}.npy'.format(args.input_dir, args.hashed_ratio, args.seed)
+hessian_file = (
+    f'{args.input_dir}/hessian_{args.hashed_ratio}_seed_{args.seed}.npy'
+)
+
 if os.path.exists(hessian_file):
     H = np.load(hessian_file)
 else:
@@ -92,8 +107,9 @@ else:
     np.save(hessian_file, H)
 
 d = X.shape[1]
-logger.info("# dim: " + str(d))
-hessian_inv_file = '{}/hessian_inv_{}_seed_{}_lam_{}.npy'.format(args.input_dir, args.hashed_ratio, args.seed, args.lam)
+logger.info(f"# dim: {str(d)}")
+hessian_inv_file = f'{args.input_dir}/hessian_inv_{args.hashed_ratio}_seed_{args.seed}_lam_{args.lam}.npy'
+
 if os.path.exists(hessian_inv_file):
     H_inv = np.load(hessian_inv_file)
 else:
@@ -110,12 +126,24 @@ logger.info("precision: ")
 prec_results[0], prec_results[1] = precision_evaluate(w, X, np.sign(y_train))
 
 #6. evaluate assignment
-logger.info("compute assignment with K={}: ".format(args.K))
+logger.info(f"compute assignment with K={args.K}: ")
 preds = X.dot(w).reshape([num_reviewer, num_paper]).transpose()
 y = y.reshape([num_reviewer, num_paper]).transpose()
-tpms = torch.load("{}/raw_data/tensor_data.pl".format(args.input_dir))["tpms"].numpy().reshape([num_reviewer, num_paper]).transpose()
+tpms = (
+    torch.load(f"{args.input_dir}/raw_data/tensor_data.pl")["tpms"]
+    .numpy()
+    .reshape([num_reviewer, num_paper])
+    .transpose()
+)
+
 assignment = assign_IP(preds, args.K)
 assignment_evaluate(assignment, y, tpms)
 
 logger.info("saving parameters...")
-np.savez(args.output_dir + '/assignment/learned_weights_hashed_ratio_{}_subsample_{}_seed_{}_lam_{}_K_{}.npy'.format(args.hashed_ratio, args.subsample_max, args.seed, args.lam, args.K), w=w, prec_results=prec_results, assignment=assignment)
+np.savez(
+    args.output_dir
+    + f'/assignment/learned_weights_hashed_ratio_{args.hashed_ratio}_subsample_{args.subsample_max}_seed_{args.seed}_lam_{args.lam}_K_{args.K}.npy',
+    w=w,
+    prec_results=prec_results,
+    assignment=assignment,
+)

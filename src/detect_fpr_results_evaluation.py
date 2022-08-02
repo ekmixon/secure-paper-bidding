@@ -44,7 +44,13 @@ L = args.L
 start_id = args.start_id
 end_id = args.end_id
 
-tpms = torch.load("{}/raw_data/tensor_data.pl".format(args.input_dir))["tpms"].numpy().reshape([num_reviewer, num_paper]).transpose()
+tpms = (
+    torch.load(f"{args.input_dir}/raw_data/tensor_data.pl")["tpms"]
+    .numpy()
+    .reshape([num_reviewer, num_paper])
+    .transpose()
+)
+
 
 X_csr_s = []
 H_inv_s = []
@@ -57,23 +63,30 @@ for seed in X_seeds:
     H_inv_s.append(H_inv)
     preds_s.append(preds)
     del X_csr, H_inv, preds
-    
+
 ensemble_preds = np.add.reduce(preds_s)
 prev_rank = np.argsort(-(ensemble_preds))
 
 prev_rank_K = prev_rank[:, :K]
 thr = 2
-print_log = []
-data = np.load("{}/detect_fpr/defense_fpr_collusion_{}_top_{}_num_seeds_{}_lam_{}_subsample_max_{}_start_id_{}_end_id_{}.npz".format(args.output_dir, L, K, args.num_seeds_X, lam, subsample_max, start_id, end_id))
+data = np.load(
+    f"{args.output_dir}/detect_fpr/defense_fpr_collusion_{L}_top_{K}_num_seeds_{args.num_seeds_X}_lam_{lam}_subsample_max_{subsample_max}_start_id_{start_id}_end_id_{end_id}.npz"
+)
+
 advs_rank = data["advs_rank"]
-print_log.append(np.sum(advs_rank[:, :5] >= K) / advs_rank[:, :5].size)
-print_log.append(np.sum(advs_rank >= K) / advs_rank.size)
+print_log = [
+    np.sum(advs_rank[:, :5] >= K) / advs_rank[:, :5].size,
+    np.sum(advs_rank >= K) / advs_rank.size,
+]
+
 under_reviewed = np.sum(np.sum(advs_rank < K, axis=1) <= thr)
 for i in range(num_paper):
     if np.sum(advs_rank[i] < K) < thr + 1:
         advs_rank[i] = np.argsort(np.argsort(advs_rank[i])) + (K - thr - 1)
 assignment_detect = assign_IP(ensemble_preds,  K=K, advs_rank=advs_rank)
-print_log = print_log + eval_assignment(assignment_detect, y, tpms)
+print_log += eval_assignment(assignment_detect, y, tpms)
 print_log = ["{:.3f}".format(log) for log in print_log]
 
-logger.info("top 5 fpr: {}, top 50 fpr: {}, Frac. of pos.: {}, Avg. bids score: {}, Avg. TPMS: {}, Avg. max. TPMS: {}, Under-reviewed: {}".format(print_log[0], print_log[1], print_log[2], print_log[3], print_log[4], print_log[5], under_reviewed))
+logger.info(
+    f"top 5 fpr: {print_log[0]}, top 50 fpr: {print_log[1]}, Frac. of pos.: {print_log[2]}, Avg. bids score: {print_log[3]}, Avg. TPMS: {print_log[4]}, Avg. max. TPMS: {print_log[5]}, Under-reviewed: {under_reviewed}"
+)

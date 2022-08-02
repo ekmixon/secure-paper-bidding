@@ -39,7 +39,10 @@ detect_num_s = []
 total_num_s = []
 adv_rank_s = []
 for seed in range(args.num_seeds_results):
-    data = np.load("{}/attack/attack_collusion_{}_top_{}_{}_num_seeds_{}_lam_{}_subsample_max_{}_seed_{}.npz".format(output_dir, L_attack, K, cheat_mode, num_seeds, lam, subsample_max, seed))
+    data = np.load(
+        f"{output_dir}/attack/attack_collusion_{L_attack}_top_{K}_{cheat_mode}_num_seeds_{num_seeds}_lam_{lam}_subsample_max_{subsample_max}_seed_{seed}.npz"
+    )
+
 
     advs_rank = data["advs_rank"]
     advs_collusion = data["advs_collusion"]
@@ -71,17 +74,20 @@ for seed in range(args.num_seeds_results):
             adv_rank[adv_test_num] = advs_rank[i, advs_original_rank[i, j].astype(int)]
             adv_test_num += 1
 
-    data = np.load("{}/detect_tpr/detect_tpr_collusion_{}_top_{}_{}_num_seeds_{}_lam_{}_subsample_max_{}_seed_{}.npz".format(output_dir, L_attack, K, cheat_mode, num_seeds, lam, subsample_max, seed))
+    data = np.load(
+        f"{output_dir}/detect_tpr/detect_tpr_collusion_{L_attack}_top_{K}_{cheat_mode}_num_seeds_{num_seeds}_lam_{lam}_subsample_max_{subsample_max}_seed_{seed}.npz"
+    )
+
     total_num_s.append(data["total_num"])
     adv_rank_s.append(adv_rank)
     detect_num_s.append(data["detect_num"])
 
 detect_num_total = np.concatenate(detect_num_s)
 total_num_s = sum(total_num_s)
-adv_rank_total = np.concatenate([adv_rank for adv_rank in adv_rank_s])
+adv_rank_total = np.concatenate(list(adv_rank_s))
 
 detect_rate[0] = detect_num_total[adv_rank_total <= 4].sum(0) / (adv_rank_total <= 4).sum()
 detect_rate[1] = detect_num_total.sum(0) / total_num_s
 
-logger.info("top 5 tpr when M_d = 1, ..., 5: {}".format(detect_rate[0]))
-logger.info("top 50 tpr when M_d = 1, ..., 5: {}".format(detect_rate[1]))
+logger.info(f"top 5 tpr when M_d = 1, ..., 5: {detect_rate[0]}")
+logger.info(f"top 50 tpr when M_d = 1, ..., 5: {detect_rate[1]}")

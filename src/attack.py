@@ -42,9 +42,14 @@ cheat_mode = args.cheat_mode
 
 os.makedirs(os.path.join(args.output_dir, 'attack'), exist_ok=True)
 
-output_name = "{}/attack/attack_collusion_{}_top_{}_{}_num_seeds_{}_lam_{}_subsample_max_{}_seed_{}".format(args.output_dir, L, K, cheat_mode, args.num_seeds, lam, subsample_max, args.seed)
+output_name = f"{args.output_dir}/attack/attack_collusion_{L}_top_{K}_{cheat_mode}_num_seeds_{args.num_seeds}_lam_{lam}_subsample_max_{subsample_max}_seed_{args.seed}"
 
-logger = set_logger("attack", "{}/attack/log_attack_collusion_{}_top_{}_{}_num_seeds_{}_lam_{}_subsample_max_{}_seed_{}.txt".format(args.output_dir, L, K, cheat_mode, args.num_seeds, lam, subsample_max, args.seed))
+
+logger = set_logger(
+    "attack",
+    f"{args.output_dir}/attack/log_attack_collusion_{L}_top_{K}_{cheat_mode}_num_seeds_{args.num_seeds}_lam_{lam}_subsample_max_{subsample_max}_seed_{args.seed}.txt",
+)
+
 logger.info(args)
 
 #1. init data
@@ -65,18 +70,44 @@ prev_rank = np.argsort(-(ensemble_preds))
 
 if cheat_mode.endswith("black_box"):
     r_pointer, p_pointer = 368, 368 + 368 + 930 
-        
+
     r_feature = X_csr_s[0][num_paper * np.arange(num_reviewer), :r_pointer]
     inner_r_feature = np.asarray(r_feature.dot(r_feature.todense().transpose()))
-    
+
     p_feature = X_csr_s[0][:num_paper, r_pointer : p_pointer]
     inner_p_feature = np.asarray(p_feature.dot(p_feature.todense().transpose()))
 
 #2. init saving cache
 if args.cheat_mode == "simple_black_box":
-    sample_num = np.concatenate(list((np.power(2, j) - 1 + np.random.permutation(min(np.power(2, j), num_reviewer - np.power(2, j) + 1)))[:num_sim] for j in range(int(np.log2(num_reviewer + 1) + 1)))).shape[0]
+    sample_num = np.concatenate(
+        [
+            (
+                np.power(2, j)
+                - 1
+                + np.random.permutation(
+                    min(np.power(2, j), num_reviewer - np.power(2, j) + 1)
+                )
+            )[:num_sim]
+            for j in range(int(np.log2(num_reviewer + 1) + 1))
+        ]
+    ).shape[0]
+
 else:
-    sample_num = np.concatenate([np.random.permutation(K)[:num_sim]] + list((K + np.power(2, j) - 1 + np.random.permutation(min(np.power(2, j), num_reviewer - np.power(2, j) - K + 1)))[:num_sim] for j in range(int(np.log2(num_reviewer + 1 - K) + 1)))).shape[0]
+    sample_num = np.concatenate(
+        [np.random.permutation(K)[:num_sim]]
+        + [
+            (
+                K
+                + np.power(2, j)
+                - 1
+                + np.random.permutation(
+                    min(np.power(2, j), num_reviewer - np.power(2, j) - K + 1)
+                )
+            )[:num_sim]
+            for j in range(int(np.log2(num_reviewer + 1 - K) + 1))
+        ]
+    ).shape[0]
+
 
 advs_rank = -np.ones([num_sample_paper, num_reviewer])
 advs_collusion = -np.ones([num_sample_paper, sample_num, L + 1])

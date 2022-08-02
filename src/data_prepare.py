@@ -37,11 +37,16 @@ def repeat_sparse(sp_t, repeat_num, repeat_order):
     size = sp_t.size()
     values = sp_t._values()
     if repeat_order == 0:
-        new_indices_0 = torch.cat(list(indices[0] + i * size[0] for i in range(repeat_num)))
-        new_indices_1 = torch.cat(list(indices[1] for i in range(repeat_num)))
+        new_indices_0 = torch.cat(
+            [indices[0] + i * size[0] for i in range(repeat_num)]
+        )
+
     else:
-        new_indices_0 = torch.cat(list(indices[0] * repeat_num + i for i in range(repeat_num)))
-        new_indices_1 = torch.cat(list(indices[1] for i in range(repeat_num)))
+        new_indices_0 = torch.cat(
+            [indices[0] * repeat_num + i for i in range(repeat_num)]
+        )
+
+    new_indices_1 = torch.cat([indices[1] for _ in range(repeat_num)])
     new_size = torch.Size([size[0] * repeat_num, size[1]])
     new_indices = torch.cat([new_indices_0.unsqueeze(0), new_indices_1.unsqueeze(0)], dim=0)
     new_values = values.repeat(repeat_num)
@@ -93,7 +98,7 @@ num_reviewer, num_paper = 2483, 2446
 
 #load_raw_tensor
 print("load raw tensor")
-tensor_data = torch.load("{}/tensor_data.pl".format(args.input_dir))
+tensor_data = torch.load(f"{args.input_dir}/tensor_data.pl")
 r_subject = dict_to_sparse(tensor_data["r_subject"])
 p_subject = dict_to_sparse(tensor_data["p_subject"])
 p_title = dict_to_sparse(tensor_data["p_title"])
@@ -104,7 +109,14 @@ tpms = tensor_data["tpms"]
 print("generate intersect subject area between reviewer and paper")
 r_subject_dense = r_subject.to_dense().numpy()
 p_subject_dense = p_subject.to_dense().numpy()
-int_subject_r_p = np.asarray(list(p_subject_dense[j] * r_subject_dense[i] for i in range(len(r_subject_dense)) for j in range(len(p_subject_dense))))
+int_subject_r_p = np.asarray(
+    [
+        p_subject_dense[j] * r_subject_dense[i]
+        for i in range(len(r_subject_dense))
+        for j in range(len(p_subject_dense))
+    ]
+)
+
 int_subject_r_p = sparse_tensor(int_subject_r_p)
 
 #quantized tpms vector
@@ -115,7 +127,7 @@ tpms_vec = np.zeros([num_reviewer * num_paper, 12])
 tpms_vec[:, -1] = tpms
 for i in range(num_reviewer * num_paper):
     tpms_vec[i][tpms_round[i]] = tpms[i] 
-    
+
 #quadratic feature between quantized tpms vector and int_subject_r_p
 print("generate quadratic feature between quantized tpms vector and int_subject_r_p")
 q_tpms_subject_int = quadratic_features_sparse(int_subject_r_p, sparse_tensor(tpms_vec))
@@ -150,7 +162,13 @@ X_csr = X.tocsr()
 
 #start to save
 print("start to save")
-sparse.save_npz("{}/hashed_features_{}_seed_{}.npz".format(args.output_dir, hashed_ratio, seed), X_csr)
-np.save("{}/labels_{}_seed_{}.npy".format(args.output_dir, hashed_ratio, seed), labels.reshape(-1))
+sparse.save_npz(
+    f"{args.output_dir}/hashed_features_{hashed_ratio}_seed_{seed}.npz", X_csr
+)
+
+np.save(
+    f"{args.output_dir}/labels_{hashed_ratio}_seed_{seed}.npy",
+    labels.reshape(-1),
+)
 
 

@@ -47,21 +47,29 @@ else:
 
 os.makedirs(os.path.join(args.output_dir, 'detect'), exist_ok=True)
 
-output_name = "{}/detect_fpr/defense_fpr_collusion_{}_top_{}_num_seeds_{}_lam_{}_subsample_max_{}_start_id_{}_end_id_{}".format(args.output_dir, L, K, args.num_seeds, lam, subsample_max, args.start_id, args.end_id)
-if os.path.exists(output_name + ".npz"):
+output_name = f"{args.output_dir}/detect_fpr/defense_fpr_collusion_{L}_top_{K}_num_seeds_{args.num_seeds}_lam_{lam}_subsample_max_{subsample_max}_start_id_{args.start_id}_end_id_{args.end_id}"
+
+if os.path.exists(f"{output_name}.npz"):
     print("done")
     os.exit()
 
-logger = set_logger("defense", "{}/detect_fpr/log_defense_fpr_collusion_{}_top_{}_num_seeds_{}_lam_{}_subsample_max_{}_start_id_{}_end_id_{}.txt".format(args.output_dir, L, K, args.num_seeds, lam, subsample_max, args.start_id, args.end_id))
+logger = set_logger(
+    "defense",
+    f"{args.output_dir}/detect_fpr/log_defense_fpr_collusion_{L}_top_{K}_num_seeds_{args.num_seeds}_lam_{lam}_subsample_max_{subsample_max}_start_id_{args.start_id}_end_id_{args.end_id}.txt",
+)
+
 logger.info(args)
 
-logger.info("lam: {}, subsample_max, {}".format(lam, subsample_max))
+logger.info(f"lam: {lam}, subsample_max, {subsample_max}")
 
 #1. init data
 X_csr_s = []
 H_inv_s = []
 y, y_train = load_y(hashed_ratio, logger, subsample_max=subsample_max)
-logger.info("pos 3: {}, pos 2: {}, pos 1: {}, neg 0: {}".format((y_train == 3).sum(), (y_train == 2).sum(), (y_train == 1).sum(), (y_train == 0).sum()))
+logger.info(
+    f"pos 3: {(y_train == 3).sum()}, pos 2: {(y_train == 2).sum()}, pos 1: {(y_train == 1).sum()}, neg 0: {(y_train == 0).sum()}"
+)
+
 preds_s = []
 for seed in seeds:
     X_csr, H_inv = load_X_and_H_inv(hashed_ratio, seed, logger, lam)
@@ -72,7 +80,7 @@ for seed in seeds:
     del X_csr, H_inv, preds
 
 logger.info(len(X_csr_s))
-    
+
 ensemble_preds = np.add.reduce(preds_s)
 prev_rank = np.argsort(-ensemble_preds)
 

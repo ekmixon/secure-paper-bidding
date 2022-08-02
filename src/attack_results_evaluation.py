@@ -45,15 +45,18 @@ for seed in X_seeds:
     H_inv_s.append(H_inv)
     preds_s.append(preds)
     del X_csr, H_inv, preds
-    
+
 ensemble_preds = np.add.reduce(preds_s)
 prev_rank = np.argsort(-(ensemble_preds))
 
-interval_num = int(np.log2(num_reviewer + 1 - K) + 2) 
+interval_num = int(np.log2(num_reviewer + 1 - K) + 2)
 suc_rate = np.zeros([interval_num])
 datas = []
 for seed in range(args.num_seeds_results):
-    data = np.load("{}/attack/attack_collusion_{}_top_{}_{}_num_seeds_1_lam_{}_subsample_max_{}_seed_{}.npz".format(args.output_dir, L, K, cheat_mode, lam, subsample_max, seed))
+    data = np.load(
+        f"{args.output_dir}/attack/attack_collusion_{L}_top_{K}_{cheat_mode}_num_seeds_1_lam_{lam}_subsample_max_{subsample_max}_seed_{seed}.npz"
+    )
+
     datas.append(data)
 advs_rank = np.concatenate([data["advs_rank"] for data in datas])
 advs_original_rank = np.concatenate([data["advs_original_rank"] for data in datas])
@@ -63,4 +66,6 @@ suc_rate[0] = suc_ind[advs_original_rank < K].sum() / float(num_samples * 10)
 for i in range(interval_num - 1):
     suc_rate[i + 1] = suc_ind[ (advs_original_rank >= K + np.power(2, i) - 1) & (advs_original_rank < K + np.power(2, i+1) - 1)].sum() / float(num_samples * min(10, np.power(2, i)))
 del data
-logger.info("Size of colluding group: {}, success rate at each bins: {}:".format(L, suc_rate[1:]))
+logger.info(
+    f"Size of colluding group: {L}, success rate at each bins: {suc_rate[1:]}:"
+)
